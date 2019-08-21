@@ -1,0 +1,251 @@
+import sys
+import numpy as np
+from fractions import Fraction
+
+try:
+    import pandas as pd
+    pandas_av = True
+except ImportError:
+    pandas_av = False
+    pass
+
+nombres_productos = []
+valor_columnas = []
+z_ecuacion = []
+resultados_filas = []
+soluciones = []
+x = 'X'
+z2_ecuacion = []
+valores_eliminados = []
+
+
+def main():
+    global decimals
+    global const_num, prod_nums
+    print("""
+    Método Simplex
+    
+Por favor seleccione una de las siguientes opciones	
+    1 :Maximización (M).
+
+    0 :Salir (S).
+    """)
+    try:
+        prob_type = int(input("Por favor ingrese el tipo de número indicado: "))
+    except ValueError:
+        print("Por favor ingrese un número de entre las opciones.")
+        prob_type = int(input("Por favor ingrese el tipo de número indicado: "))
+    if prob_type != 1 and prob_type != 0:
+        sys.exit("Ha ingresado un valor inválido." + str(prob_type))
+    if prob_type == 0:
+        print("Adiós.")
+        sys.exit()
+    print('\n_____________________________________________________')
+    global const_names
+    const_num = int(input("¿Cuántas columnas desea ingresar?: "))
+    prod_nums = int(input("¿Cuántas filas desea ingresar?: "))
+    const_names = [x + str(i) for i in range(1, const_num + 1)]
+    for i in range(1, prod_nums + 1):
+        prod_val = input("Por favor ingrese el {}° valor de la fila: >".format(i))
+        nombres_productos.append(prod_val)
+    print("__________________________________________________")
+    if prob_type == 1:
+        for i in const_names:
+            try:
+                val = float(Fraction(input("Ingrese el valor de %s en la ecuación de Z: " % i)))
+            except ValueError:
+                print("Por favor ingrese un número")
+                val = float(Fraction(input("Ingrese el valor de %s en la ecuación de Z: " % i)))
+            z_ecuacion.append(0 - int(val))
+        z_ecuacion.append(0)
+
+        while len(z_ecuacion) <= (const_num + prod_nums):
+            z_ecuacion.append(0)
+        print("__________________________________________________")
+        for prod in nombres_productos:
+            for const in const_names:
+                try:
+                    val = float(Fraction(input("Ingrese el valor de %s en %s: " % (const, prod))))
+                except ValueError:
+                    print("Por favor ingrese un número")
+                    val = float(Fraction(input("Ingrese el valor de %s en %s: " % (const, prod))))
+                valor_columnas.append(val)
+            equate_prod = float(Fraction(input("Igualar %s a: " % prod)))
+            valor_columnas.append(equate_prod)
+
+        final_cols = stdz_rows(valor_columnas)
+        i = len(const_names) + 1
+        while len(const_names) < len(final_cols[0]) - 1:
+            const_names.append('X' + str(i))
+            soluciones.append('X' + str(i))
+            i += 1
+        soluciones.append(' Z')
+        const_names.append('Solución')
+        final_cols.append(z_ecuacion)
+        resultados_filas = np.array(final_cols).T.tolist()
+        print("_____________________________________________")
+        decimals = int(input('Número de decimales : '))
+        print('\n___________________________________________')
+        maximization(final_cols, resultados_filas)
+
+    else:
+        sys.exit("Ingresó un número incorrecto" + str(prob_type))
+
+
+def maximization(final_cols, resultados_filas):
+    row_app = []
+    last_col = final_cols[-1]
+    min_last_row = min(last_col)
+    min_manager = 1
+    print(" Tabla")
+    try:
+        final_pd = pd.DataFrame(np.array(final_cols), columns=const_names, index=soluciones)
+        print(final_pd)
+    except:
+        print('  ', const_names)
+        i = 0
+        for cols in final_cols:
+            print(soluciones[i], cols)
+            i += 1
+    count = 2
+    pivot_element = 2
+    while min_last_row < 0 < pivot_element != 1 and min_manager == 1 and count < 6:
+        print("*********************************************************")
+        last_col = final_cols[-1]
+        last_row = resultados_filas[-1]
+        min_last_row = min(last_col)
+        index_of_min = last_col.index(min_last_row)
+        pivot_row = resultados_filas[index_of_min]
+        index_pivot_row = resultados_filas.index(pivot_row)
+        row_div_val = []
+        i = 0
+        for _ in last_row[:-1]:
+            try:
+                val = float(last_row[i] / pivot_row[i])
+                if val <= 0:
+                    val = 10000000000
+                else:
+                    val = val
+                row_div_val.append(val)
+            except ZeroDivisionError:
+                val = 10000000000
+                row_div_val.append(val)
+            i += 1
+        min_div_val = min(row_div_val)
+        index_min_div_val = row_div_val.index(min_div_val)
+        pivot_element = pivot_row[index_min_div_val]
+        pivot_col = final_cols[index_min_div_val]
+        index_pivot_col = final_cols.index(pivot_col)
+        row_app[:] = []
+        for col in final_cols:
+            if col is not pivot_col and col is not final_cols[-1]:
+                form = col[index_of_min] / pivot_element
+                final_val = np.array(pivot_col) * form
+                new_col = (np.round((np.array(col) - final_val), decimals)).tolist()
+                final_cols[final_cols.index(col)] = new_col
+
+            elif col is pivot_col:
+                new_col = (np.round((np.array(col) / pivot_element), decimals)).tolist()
+                final_cols[final_cols.index(col)] = new_col
+            else:
+                form = abs(col[index_of_min]) / pivot_element
+                final_val = np.array(pivot_col) * form
+                new_col = (np.round((np.array(col) + final_val), decimals)).tolist()
+                final_cols[final_cols.index(col)] = new_col
+        resultados_filas[:] = []
+        re_resultados_filas = np.array(final_cols).T.tolist()
+        resultados_filas = resultados_filas + re_resultados_filas
+
+        if min(row_div_val) != 10000000000:
+            min_manager = 1
+        else:
+            min_manager = 0
+        print('Elemento pivote: %s' % pivot_element)
+        print('Columna pivote: ', pivot_row)
+        print('Fila pivote: ', pivot_col)
+        print("\n")
+        soluciones[index_pivot_col] = const_names[index_pivot_row]
+
+        print(" %d Tabla" % count)
+        try:
+            final_pd = pd.DataFrame(np.array(final_cols), columns=const_names, index=soluciones)
+            print(final_pd)
+        except:
+            print("%d Tabla" % count)
+            print('  ', const_names)
+            i = 0
+            for cols in final_cols:
+                print(soluciones[i], cols)
+                i += 1
+        count += 1
+        last_col = final_cols[-1]
+        last_row = resultados_filas[-1]
+        min_last_row = min(last_col)
+        index_of_min = last_col.index(min_last_row)
+        pivot_row = resultados_filas[index_of_min]
+        row_div_val = []
+        i = 0
+        for _ in last_row[:-1]:
+            try:
+                val = float(last_row[i] / pivot_row[i])
+                if val <= 0:
+                    val = 10000000000
+                else:
+                    val = val
+                row_div_val.append(val)
+            except ZeroDivisionError:
+                val = 10000000000
+                row_div_val.append(val)
+            i += 1
+        min_div_val = min(row_div_val)
+        index_min_div_val = row_div_val.index(min_div_val)
+        pivot_element = pivot_row[index_min_div_val]
+        if pivot_element < 0:
+            print(no_solution)
+    if not pandas_av:
+        print("""
+        Asegurese de haber importado "pandas"
+        """)
+
+def stdz_rows2(column_values):
+    final_cols = [column_values[x:x + const_num + 1] for x in range(0, len(column_values), const_num + 1)]
+    sum_z = (0 - np.array(final_cols).sum(axis=0)).tolist()
+    for _list in sum_z:
+        z2_ecuacion.append(_list)
+
+    for cols in final_cols:
+        while len(cols) < (const_num + (2 * prod_nums) - 1):
+            cols.insert(-1, 0)
+
+    i = const_num
+    for sub_col in final_cols:
+        sub_col.insert(i, -1)
+        z2_ecuacion.insert(-1, 1)
+        i += 1
+
+    for sub_col in final_cols:
+        sub_col.insert(i, 1)
+        i += 1
+
+    while len(z2_ecuacion) < len(final_cols[0]):
+        z2_ecuacion.insert(-1, 0)
+
+    return final_cols
+
+
+def stdz_rows(column_values):
+    final_cols = [column_values[x:x + const_num + 1] for x in range(0, len(column_values), const_num + 1)]
+    for cols in final_cols:
+        while len(cols) < (const_num + prod_nums):
+            cols.insert(-1, 0)
+
+    i = const_num
+    for sub_col in final_cols:
+        sub_col.insert(i, 1)
+        i += 1
+
+    return final_cols
+
+
+if __name__ == "__Inicio__":
+    main()
